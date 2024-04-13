@@ -1,0 +1,175 @@
+package noouterval
+
+// noouterval は、外側のスコープ同じインタフェースの変数を参照していないかをチェックする。
+// x/analysis を使って、型情報を解析する。
+// 指定された名前の型を持つ変数は、スコープの中での使用が唯一でなくてはいけない。
+
+import (
+	"fmt"
+	"go/ast"
+	"go/types"
+	"log"
+	"strings"
+
+	"golang.org/x/tools/go/analysis"
+	"golang.org/x/tools/go/analysis/passes/inspect"
+	"golang.org/x/tools/go/ast/inspector"
+)
+
+var Analyzer = &analysis.Analyzer{
+	Name: "noouterval",
+	Doc:  "check that values of the same type are not referenced in the outer scope",
+	Run:  run,
+	Requires: []*analysis.Analyzer{
+		inspect.Analyzer,
+	},
+}
+
+var typePath string // -type flag
+
+func init() {
+	Analyzer.Flags.StringVar(&typePath, "type", typePath, "type which should not be referenced in the outer scope")
+}
+
+func lookupType(pkg *types.Package, typePath string) (types.Object, error) {
+	pos := strings.LastIndex(typePath, ".")
+	if pos == -1 {
+		return nil, fmt.Errorf("invalid type path: %s", typePath)
+	}
+
+	pkgPath := typePath[:pos]
+	typeName := typePath[pos+1:]
+
+	visited := map[*types.Package]bool{}
+	queue := []*types.Package{pkg}
+	for len(queue) > 0 {
+		pkg := queue[0]
+		queue = queue[1:]
+
+		if visited[pkg] {
+			continue
+		}
+		visited[pkg] = true
+
+		queue = append(queue, pkg.Imports()...)
+
+		if pkg.Path() != pkgPath {
+			continue
+		}
+		typ := pkg.Scope().Lookup(typeName)
+		if typ != nil {
+			return typ, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func assinableTo(t1, t2 types.Type) bool {
+	if bt, ok := t1.(*types.Basic); ok && bt.Kind() == types.Invalid {
+		return false
+	}
+	return types.AssignableTo(t1, t2)
+}
+
+func run(pass *analysis.Pass) (interface{}, error) {
+	targetType, err := lookupType(pass.Pkg, typePath)
+	if err != nil {
+		return nil, err
+	}
+	if targetType == nil {
+		// fail silently
+		return nil, nil
+	}
+
+	ins := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+	ins.WithStack([]ast.Node{(*ast.Ident)(nil)}, func(node ast.Node, push bool, stack []ast.Node) bool {
+		if !push {
+			return false
+		}
+
+		foundIdent := node.(*ast.Ident)
+		foundIdentObj, ok := pass.TypesInfo.Uses[foundIdent].(*types.Var)
+		if !ok {
+			return true
+		}
+
+		if assinableTo(foundIdentObj.Type(), targetType.Type()) {
+			// node is a variable of the targetType
+		} else {
+			return true
+		}
+
+		var (
+			foundExpr  ast.Expr = foundIdent
+			foundScope          = foundIdentObj.Parent()
+		)
+
+		if foundIdentObj.IsField() {
+			for i := range stack {
+				if expr, ok := stack[len(stack)-1-i].(*ast.SelectorExpr); ok && expr.Sel == foundIdent {
+					foundExpr = expr
+					if baseIdent, ok := expr.X.(*ast.Ident); ok {
+						foundScope = pass.TypesInfo.Uses[baseIdent].Parent()
+					} else {
+						// TODO: support x.y.z or x.y().z
+						log.Printf("TODO: not supported: %v\n", types.ExprString(expr))
+						return true
+					}
+					break
+				}
+				if kv, ok := stack[len(stack)-1-i].(*ast.KeyValueExpr); ok && kv.Key == foundIdent {
+					// node is K in Struct{ K: ... }
+					return true
+				}
+			}
+		}
+
+		thisScope := pass.Pkg.Scope().Innermost(foundIdent.Pos())
+		if foundScope == thisScope {
+			return true
+		}
+
+		for thisScope != nil && thisScope != foundScope && thisScope != types.Universe {
+			for _, name := range thisScope.Names() {
+				objInScope := thisScope.Lookup(name)
+				if !assinableTo(objInScope.Type(), targetType.Type()) {
+					continue
+				}
+
+				pass.Report(
+					analysis.Diagnostic{
+						Pos: foundExpr.Pos(),
+						End: foundExpr.End(),
+						Message: fmt.Sprintf(
+							"using %s in the outer scope but %s is defined at %s",
+							types.ExprString(foundExpr),
+							objInScope.Name(),
+							pass.Fset.Position(objInScope.Pos()),
+						),
+						SuggestedFixes: []analysis.SuggestedFix{
+							{
+								Message: "use value of the same type",
+								TextEdits: []analysis.TextEdit{
+									{
+										Pos:     foundExpr.Pos(),
+										End:     foundExpr.End(),
+										NewText: []byte(objInScope.Name()),
+									},
+								},
+							},
+						},
+					},
+				)
+
+				return true
+			}
+
+			thisScope = thisScope.Parent()
+		}
+
+		return true
+	})
+
+	return nil, nil
+}
