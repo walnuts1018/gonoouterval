@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
-	"log"
 	"strings"
 
 	"golang.org/x/tools/go/analysis"
@@ -72,6 +71,17 @@ func assinableTo(t1, t2 types.Type) bool {
 	return types.AssignableTo(t1, t2)
 }
 
+func baseIdent(node ast.Node) *ast.Ident {
+	switch node := node.(type) {
+	case *ast.Ident:
+		return node
+	case *ast.SelectorExpr:
+		return baseIdent(node.X)
+	default:
+		return nil
+	}
+}
+
 func run(pass *analysis.Pass) (interface{}, error) {
 	targetType, err := lookupType(pass.Pkg, typePath)
 	if err != nil {
@@ -108,15 +118,12 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		if foundIdentObj.IsField() {
 			for i := range stack {
 				if expr, ok := stack[len(stack)-1-i].(*ast.SelectorExpr); ok && expr.Sel == foundIdent {
-					foundExpr = expr
-					if baseIdent, ok := expr.X.(*ast.Ident); ok {
-						foundScope = pass.TypesInfo.Uses[baseIdent].Parent()
-					} else {
-						// TODO: support x.y.z or x.y().z
-						log.Printf("TODO: not supported: %v\n", types.ExprString(expr))
-						return true
+					if base := baseIdent(expr); base != nil {
+						foundExpr = expr
+						foundScope = pass.TypesInfo.Uses[base].Parent()
+						break
 					}
-					break
+					return true
 				}
 				if kv, ok := stack[len(stack)-1-i].(*ast.KeyValueExpr); ok && kv.Key == foundIdent {
 					// node is K in Struct{ K: ... }

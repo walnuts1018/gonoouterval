@@ -9,6 +9,6 @@ import (
 func TestAnalyzer(t *testing.T) {
 	testData := analysistest.TestData()
 
-	typePath = "test1.Conn"
-	analysistest.Run(t, testData, Analyzer, "test1")
+	typePath = "test1/test1sub.Conn"
+	analysistest.RunWithSuggestedFixes(t, testData, Analyzer, "test1")
 }
