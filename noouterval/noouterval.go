@@ -1,8 +1,6 @@
+// Package noouterval finds uses of values from the outer scope,
+// despite values of same type is defined in the inner scope.
 package noouterval
-
-// noouterval は、外側のスコープ同じインタフェースの変数を参照していないかをチェックする。
-// x/analysis を使って、型情報を解析する。
-// 指定された名前の型を持つ変数は、スコープの中での使用が唯一でなくてはいけない。
 
 import (
 	"fmt"
@@ -17,7 +15,7 @@ import (
 
 var Analyzer = &analysis.Analyzer{
 	Name: "noouterval",
-	Doc:  "check that values of the same type are not referenced in the outer scope",
+	Doc:  "check for uses of values from the outer scope despite values of same type in the inner scope",
 	Run:  run,
 	Requires: []*analysis.Analyzer{
 		inspect.Analyzer,
@@ -27,7 +25,7 @@ var Analyzer = &analysis.Analyzer{
 var typePath string // -type flag
 
 func init() {
-	Analyzer.Flags.StringVar(&typePath, "type", typePath, "type which should not be referenced in the outer scope")
+	Analyzer.Flags.StringVar(&typePath, "type", typePath, "`path/to/pkg.type` to check for")
 }
 
 func lookupType(pkg *types.Package, typePath string) (types.Object, error) {
@@ -149,14 +147,14 @@ func run(pass *analysis.Pass) (interface{}, error) {
 						Pos: foundExpr.Pos(),
 						End: foundExpr.End(),
 						Message: fmt.Sprintf(
-							"using %s in the outer scope but %s is defined at %s",
+							"using %s from the outer scope but %s is defined inner at %s",
 							types.ExprString(foundExpr),
 							objInScope.Name(),
 							pass.Fset.Position(objInScope.Pos()),
 						),
 						SuggestedFixes: []analysis.SuggestedFix{
 							{
-								Message: "use value of the same type",
+								Message: "use inner value of the same type",
 								TextEdits: []analysis.TextEdit{
 									{
 										Pos:     foundExpr.Pos(),
