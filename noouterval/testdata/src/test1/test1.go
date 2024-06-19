@@ -28,12 +28,12 @@ func Foo() {
 
 	runTransaction(func(tx *Tx) {
 		tx.Method()
-		db.Method()   // want `using db in the outer scope but tx is defined at .*/test1\.go:29`
-		c.db.Method() // want `using c.db in the outer scope but tx is defined at .*/test1\.go:29`
+		db.Method()   // want `using db from the outer scope but tx is defined inner at .*/test1\.go:29`
+		c.db.Method() // want `using c.db from the outer scope but tx is defined inner at .*/test1\.go:29`
 		var _ test1sub.Conn = nil
 		var _ Struct = Struct{
-			DBField: c.db, // want `using c.db in the outer scope but tx is defined at .*/test1\.go:29`
+			DBField: c.db, // want `using c.db from the outer scope but tx is defined inner at .*/test1\.go:29`
 		}
-		d.s.DBField.Method() // want `using d.s.DBField in the outer scope but tx is defined at .*/test1\.go:29`
+		d.s.DBField.Method() // want `using d.s.DBField from the outer scope but tx is defined inner at .*/test1\.go:29`
 	})
 }
