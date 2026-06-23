@@ -1,6 +1,6 @@
 # sample
 
-## custom golangci-lint実行方法
+## 実行方法
 
 custom binaryをビルドします。
 
