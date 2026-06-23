@@ -8,24 +8,66 @@ import (
 	"go/types"
 	"strings"
 
+	"github.com/golangci/plugin-module-register/register"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
 )
 
-var Analyzer = &analysis.Analyzer{
-	Name: "noouterval",
-	Doc:  "check for uses of values from the outer scope despite values of same type in the inner scope",
-	Run:  run,
-	Requires: []*analysis.Analyzer{
-		inspect.Analyzer,
-	},
+const doc = "check for uses of values from the outer scope despite values of same type in the inner scope"
+
+// Settings is the golangci-lint module plugin configuration.
+type Settings struct {
+	Type string `json:"type"`
 }
 
-var typePath string // -type flag
+// Analyzer is the default analyzer used by singlechecker.
+var Analyzer = NewAnalyzer(Settings{})
 
 func init() {
-	Analyzer.Flags.StringVar(&typePath, "type", typePath, "`path/to/pkg.type` to check for")
+	register.Plugin("gonoouterval", newPlugin)
+}
+
+// NewAnalyzer returns a gonoouterval analyzer configured for the target type.
+func NewAnalyzer(settings Settings) *analysis.Analyzer {
+	a := &analysis.Analyzer{
+		Name: "gonoouterval",
+		Doc:  doc,
+		Run: func(pass *analysis.Pass) (interface{}, error) {
+			return run(pass, settings.Type)
+		},
+		Requires: []*analysis.Analyzer{
+			inspect.Analyzer,
+		},
+	}
+
+	a.Flags.StringVar(&settings.Type, "type", settings.Type, "`path/to/pkg.type` to check for")
+
+	return a
+}
+
+type plugin struct {
+	settings Settings
+}
+
+func newPlugin(rawSettings any) (register.LinterPlugin, error) {
+	settings, err := register.DecodeSettings[Settings](rawSettings)
+	if err != nil {
+		return nil, err
+	}
+	if settings.Type == "" {
+		return nil, fmt.Errorf("type is required")
+	}
+
+	return &plugin{settings: settings}, nil
+}
+
+func (p *plugin) BuildAnalyzers() ([]*analysis.Analyzer, error) {
+	return []*analysis.Analyzer{NewAnalyzer(p.settings)}, nil
+}
+
+func (p *plugin) GetLoadMode() string {
+	return register.LoadModeTypesInfo
 }
 
 func lookupType(pkg *types.Package, typePath string) (types.Object, error) {
@@ -80,7 +122,7 @@ func baseIdent(node ast.Node) *ast.Ident {
 	}
 }
 
-func run(pass *analysis.Pass) (interface{}, error) {
+func run(pass *analysis.Pass, typePath string) (interface{}, error) {
 	targetType, err := lookupType(pass.Pkg, typePath)
 	if err != nil {
 		return nil, err

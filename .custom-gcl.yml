@@ -1,0 +1,4 @@
+version: v2.12.2
+plugins:
+  - module: github.com/walnuts1018/noouterval
+    path: .
