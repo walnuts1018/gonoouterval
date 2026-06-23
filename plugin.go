@@ -1,3 +1,3 @@
-package gostatictools
+package gonoouterval
 
-import _ "github.com/walnuts1018/noouterval/noouterval"
+import _ "github.com/walnuts1018/gonoouterval/noouterval"

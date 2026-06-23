@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/walnuts1018/noouterval/noouterval"
+	"github.com/walnuts1018/gonoouterval/noouterval"
 	"golang.org/x/tools/go/analysis/singlechecker"
 )
 

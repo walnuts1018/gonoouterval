@@ -11,8 +11,8 @@ custom golangci-lint binary をビルドする必要があります。
 ```yaml
 version: v2.12.2
 plugins:
-  - module: github.com/walnuts1018/noouterval
-    import: "github.com/walnuts1018/noouterval"
+  - module: github.com/walnuts1018/gonoouterval
+    import: "github.com/walnuts1018/gonoouterval"
     version: latest
 ```
 

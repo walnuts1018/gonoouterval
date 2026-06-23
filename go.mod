@@ -1,4 +1,4 @@
-module github.com/walnuts1018/noouterval
+module github.com/walnuts1018/gonoouterval
 
 go 1.26
 
