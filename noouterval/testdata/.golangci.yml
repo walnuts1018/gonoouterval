@@ -1,0 +1,12 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - gonoouterval
+  settings:
+    custom:
+      gonoouterval:
+        type: module
+        description: Check for outer scoped values when same-typed inner values exist.
+        settings:
+          type: testdata.Execer
