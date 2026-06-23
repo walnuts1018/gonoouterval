@@ -1,4 +1,4 @@
-package testdata
+package sample
 
 type Execer interface {
 	Exec(query string) error

@@ -1,4 +1,4 @@
-# testdata
+# sample
 
 ## custom golangci-lint実行方法
 

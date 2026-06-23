@@ -9,4 +9,4 @@ linters:
         type: module
         description: Check for outer scoped values when same-typed inner values exist.
         settings:
-          type: testdata.Execer
+          type: sample.Execer
