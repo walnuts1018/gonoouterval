@@ -1,5 +1,7 @@
 # gonoouterval
 
+※ Linterの実装自体は [motemen](https://github.com/motemen)さんの[go-statictools](https://github.com/motemen/go-statictools)をそのまま利用しています。
+
 ## golangci-lint v2
 
 ### ビルド
