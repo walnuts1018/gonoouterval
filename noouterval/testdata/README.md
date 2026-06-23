@@ -11,6 +11,5 @@ golangci-lint custom --destination tmp --name golangci-lint
 fixture に対して golangci-lint を実行します。
 
 ```sh
-cd noouterval/testdata
-../../tmp/golangci-lint run .
+tmp/golangci-lint run .
 ```

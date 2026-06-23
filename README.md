@@ -4,15 +4,28 @@
 
 ### ビルド
 
-まずは、以下のコマンドをリポジトリ直下で実行し、custom golangci-lint binary をビルドします。
+custom golangci-lint binary をビルドする必要があります。
 
-```sh
+まず、`.custom-gcl.yml`ファイルを以下の内容で作成します。
+
+```yaml
+version: v2.12.2
+plugins:
+  - module: github.com/walnuts1018/noouterval
+    import: "github.com/walnuts1018/noouterval"
+    version: latest
+```
+
+その後、`golangci-lint custom`を使って、plugin入りのgolangci-lintをビルドします。
+
+```bash
 golangci-lint custom --name custom-gcl
 ```
 
 ### 利用
 
 `.golangci.yml` で `gonoouterval` を有効化します。
+`settings.type` には、検査対象の型を `path/to/pkg.Type` 形式で指定します。
 
 ```yaml
 version: "2"
@@ -29,9 +42,7 @@ linters:
           type: path/to/pkg.Type
 ```
 
-`settings.type` には、検査対象の型を `path/to/pkg.Type` 形式で指定します。
-
-custom binary を実行します。
+custom golangci-lint を実行します。
 
 ```sh
 ./custom-gcl run ./...
